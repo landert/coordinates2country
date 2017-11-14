@@ -1,0 +1,30 @@
+{
+  "name": "coordinates2country",
+  "version": "0.0.0",
+  "description": "Get country data (name, ISO code, etc.) for geographic coordinates",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/landert/coordinates2country.git"
+  },
+  "keywords": [
+    "coordinates",
+    "country"
+  ],
+  "author": "Lubos Andert",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/landert/coordinates2country/issues"
+  },
+  "homepage": "https://github.com/landert/coordinates2country#readme",
+  "engines": {
+    "node": "6.2",
+    "npm": "^3.10.0"
+  },
+  "dependencies": {
+    "point-in-polygon": "^1.0.1"
+  }
+}
