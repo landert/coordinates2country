@@ -1,4 +1,4 @@
-var cca3, countries, countryByCca3, createPolygon, data, dataPath, deg2rad, feature, file, fs, geoData, getDistance, k, len, pip, pointInBoundingBox, pointToCountry, ref, ref1, ref2;
+var calculateDistance, cca3, countries, countryByCca3, createPolygon, data, dataPath, deg2rad, feature, file, fs, geoData, k, len, pip, pointInBoundingBox, pointToCountry, ref, ref1, ref2;
 
 fs = require("fs");
 
@@ -53,7 +53,7 @@ deg2rad = function(degree) {
   return degree * Math.PI / 180;
 };
 
-getDistance = function(longitude1, latitude1, longitude2, latitude2) {
+calculateDistance = function(longitude1, latitude1, longitude2, latitude2) {
   var a, c, d, dLat, dLon, earth_radius;
   earth_radius = 6371;
   dLat = deg2rad(latitude2 - latitude1);
@@ -102,7 +102,7 @@ pointToCountry = function(longitude, latitude, findNearest) {
       if (vertex[0] === 0 && vertex[1] === 0) {
         continue;
       }
-      dist = getDistance(longitude, latitude, vertex[0], vertex[1]);
+      dist = calculateDistance(longitude, latitude, vertex[0], vertex[1]);
       if (dist < minDist) {
         minDist = dist;
         minCca3 = cca3;
@@ -115,7 +115,7 @@ pointToCountry = function(longitude, latitude, findNearest) {
   return null;
 };
 
-dataPath = "./lib/countries/data";
+dataPath = __dirname + "/lib/countries/data";
 
 geoData = {};
 

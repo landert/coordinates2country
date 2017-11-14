@@ -85,7 +85,7 @@ pointToCountry = (longitude, latitude, findNearest = false)->
 	return countryByCca3 minCca3 if minCca3
 	null
 
-dataPath = "./lib/countries/data"
+dataPath = __dirname + "/lib/countries/data"
 geoData = {}
 for file in fs.readdirSync dataPath
 	continue unless /^[a-z]{3}\.geo\.json$/.test file
