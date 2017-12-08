@@ -165,6 +165,7 @@ output:
 ## Credits
 Thanks to:
  - @mledoze for https://github.com/mledoze/countries
+ - @johan for https://github.com/johan/world.geo.json
  - @substack for https://github.com/substack/point-in-polygon
 
 ## License

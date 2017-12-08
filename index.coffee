@@ -2,6 +2,12 @@ fs = require "fs"
 countries = require "./lib/countries"
 pip = require "point-in-polygon"
 
+# geo json data for all countries and sub-countries
+geoData = {}
+
+countryCodes = []
+subcountryCodes = []
+
 # geojson coordinates format is [longitude, latitude]
 createPolygon = (type, coordinates)->
 	switch type
@@ -64,16 +70,21 @@ countryByCca3 = (cca3)->
 		return country if cca3 is country.cca3.toLowerCase()
 	null
 
-pointToCountry = (longitude, latitude, findNearest = false)->
-	for cca3, data of geoData when pointInBoundingBox longitude, latitude, data
-		return countryByCca3 cca3 if pip [longitude, latitude], data.vertices
+pointToCountry = (longitude, latitude, findNearest = false, subcountryIn = null)->
+	subcountryIn = subcountryIn.toLowerCase() if subcountryIn
+
+	cca3Codes = if subcountryIn then subcountryCodes else countryCodes
+
+	for cca3 in cca3Codes when pointInBoundingBox longitude, latitude, geoData[cca3]
+		if pip [longitude, latitude], geoData[cca3].vertices
+			return countryByCca3 cca3 
 
 	return null unless findNearest
 
 	minDist = Number.MAX_SAFE_INTEGER
 	minCca3 = null
-	for cca3, data of geoData
-		for vertex in data.vertices
+	for cca3 in cca3Codes
+		for vertex in geoData[cca3].vertices
 			# vertex inserted because of 'pnpoly'
 			continue if vertex[0] is 0 and vertex[1] is 0
 
@@ -85,23 +96,42 @@ pointToCountry = (longitude, latitude, findNearest = false)->
 	return countryByCca3 minCca3 if minCca3
 	null
 
-dataPath = __dirname + "/lib/countries/data"
-geoData = {}
-for file in fs.readdirSync dataPath
-	continue unless /^[a-z]{3}\.geo\.json$/.test file
+loadData = (dataPath, isoFn=null, featureFn=null)->
+	for file in fs.readdirSync dataPath
+		continue unless /^[a-zA-Z]{2,3}\.geo\.json$/.test file
 
-	data = require dataPath + "/" + file
-	if data?.features?.length isnt 1
-		throw new Error("Unexpected number of features: " + data.features.length)
+		data = require dataPath + "/" + file
+		if data?.features?.length isnt 1
+			throw new Error("Unexpected number of features: " + data.features.length)
 
-	feature = data.features.shift()
-	continue unless feature.geometry?.type
+		feature = data.features.shift()
+		continue unless feature.geometry?.type
 
-	switch feature.geometry.type
-		when "Polygon", "MultiPolygon"
-			cca3 = file.substring 0, 3
-			geoData[cca3] = createPolygon feature.geometry.type, feature.geometry.coordinates
-		else
-			throw new Error("Unsupported geometry: " + feature.geometry.type)
+		switch feature.geometry.type
+			when "Polygon", "MultiPolygon"
+				cca3 = file.replace /\..*/, ""
+				cca3 = isoFn cca3 if isoFn
+				cca3 = cca3.toLowerCase()
+				if cca3.indexOf("-") is -1 then countryCodes.push cca3 else subcountryCodes.push cca3
+				featureFn cca3, feature if featureFn
+				geoData[cca3] = createPolygon feature.geometry.type, feature.geometry.coordinates
+			else
+				throw new Error("Unsupported geometry: " + feature.geometry.type)
 
-module.exports = pointToCountry
+loadData __dirname + "/lib/countries/data"
+loadData __dirname + "/lib/world.geo.json/countries/USA",
+	(iso)-> "usa-#{iso}",
+	(iso, feature)->
+		countries.push
+			cca2: iso.toUpperCase().replace "USA-", "US-"
+			cca3: iso.toUpperCase()
+			name:
+				common: feature.properties.name
+
+module.exports = (longitude, latitude, findNearest = false)->
+	country = pointToCountry longitude, latitude, findNearest
+	return country unless country?.cca3 in ["USA"]
+	newCountry = {}
+	newCountry[k] = v for k, v of country
+	newCountry.subcountry = pointToCountry(longitude, latitude, findNearest, country.cca3) or {}
+	newCountry
