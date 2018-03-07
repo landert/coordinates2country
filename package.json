@@ -1,6 +1,6 @@
 {
   "name": "coordinates2country",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Get country data (name, ISO code, etc.) for geographic coordinates",
   "main": "index.js",
   "scripts": {
