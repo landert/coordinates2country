@@ -8,6 +8,8 @@ geoData = {}
 countryCodes = []
 subcountryCodes = []
 
+COOR_STEP = 5
+
 # geojson coordinates format is [longitude, latitude]
 createPolygon = (type, coordinates)->
 	switch type
@@ -81,17 +83,30 @@ pointToCountry = (longitude, latitude, findNearest = false, subcountryIn = null)
 
 	return null unless findNearest
 
+	points = [
+		[Math.floor(longitude / COOR_STEP) * COOR_STEP, Math.floor(latitude / COOR_STEP) * COOR_STEP]
+		[Math.floor(longitude / COOR_STEP) * COOR_STEP, Math.ceil( latitude / COOR_STEP) * COOR_STEP]
+		[Math.ceil( longitude / COOR_STEP) * COOR_STEP, Math.floor(latitude / COOR_STEP) * COOR_STEP]
+		[Math.ceil( longitude / COOR_STEP) * COOR_STEP, Math.ceil( latitude / COOR_STEP) * COOR_STEP]
+	]
 	minDist = Number.MAX_SAFE_INTEGER
 	minCca3 = null
-	for cca3 in cca3Codes
-		for vertex in geoData[cca3].vertices
-			# vertex inserted because of 'pnpoly'
-			continue if vertex[0] is 0 and vertex[1] is 0
+	for point in points
+		nearRound = verticesNet[point[0]]?[point[1]] ? {}
+		for cca3, coords of nearRound
 
-			dist = calculateDistance longitude, latitude, vertex[0], vertex[1]
-			if dist < minDist
-				minDist = dist
-				minCca3 = cca3
+			if subcountryIn
+				if cca3.indexOf(subcountryIn + "-") isnt 0
+					continue
+			else
+				if cca3.indexOf("-") isnt -1
+					continue
+
+			for coord in coords
+				dist = calculateDistance longitude, latitude, coord[0], coord[1]
+				if dist < minDist and dist < 500
+					minDist = dist
+					minCca3 = cca3
 
 	return countryByCca3 minCca3 if minCca3
 	null
@@ -104,7 +119,7 @@ loadData = (dataPath, isoFn=null, featureFn=null)->
 		if data?.features?.length isnt 1
 			throw new Error("Unexpected number of features: " + data.features.length)
 
-		feature = data.features.shift()
+		feature = data.features[0]
 		continue unless feature.geometry?.type
 
 		switch feature.geometry.type
@@ -127,6 +142,31 @@ loadData __dirname + "/lib/world.geo.json/countries/USA",
 			cca3: iso.toUpperCase()
 			name:
 				common: feature.properties.name
+
+# create net of points for faster searching of nearest border
+verticesNet = {}
+for cca3, data of geoData
+	for vertex in data.vertices
+		continue if vertex[0] is 0 and vertex[1] is 0
+
+		points = [
+			# longitude, latitude
+			[Math.floor(vertex[0] / COOR_STEP) * COOR_STEP, Math.floor(vertex[1] / COOR_STEP) * COOR_STEP]
+			[Math.floor(vertex[0] / COOR_STEP) * COOR_STEP, Math.ceil( vertex[1] / COOR_STEP) * COOR_STEP]
+			[Math.ceil( vertex[0] / COOR_STEP) * COOR_STEP, Math.floor(vertex[1] / COOR_STEP) * COOR_STEP]
+			[Math.ceil( vertex[0] / COOR_STEP) * COOR_STEP, Math.ceil( vertex[1] / COOR_STEP) * COOR_STEP]
+		]
+
+		# longitude +180 needs to be checked against longitude -180 and vice versa
+		for i in [0..3]
+			if Math.abs(points[i][0]) is 180
+				points.push [-points[i][0], points[i][1]]
+
+		for point in points
+			verticesNet[point[0]] ?= {}
+			verticesNet[point[0]][point[1]] ?= {}
+			verticesNet[point[0]][point[1]][cca3] ?= []
+			verticesNet[point[0]][point[1]][cca3].push vertex
 
 module.exports = (longitude, latitude, findNearest = false)->
 	country = pointToCountry longitude, latitude, findNearest

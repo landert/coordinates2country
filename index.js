@@ -1,4 +1,4 @@
-var calculateDistance, countries, countryByCca3, countryCodes, createPolygon, deg2rad, fs, geoData, loadData, pip, pointInBoundingBox, pointToCountry, subcountryCodes;
+var COOR_STEP, base, base1, calculateDistance, cca3, countries, countryByCca3, countryCodes, createPolygon, data, deg2rad, fs, geoData, i, l, len, len1, loadData, m, n, name, name1, pip, point, pointInBoundingBox, pointToCountry, points, ref, subcountryCodes, vertex, verticesNet;
 
 fs = require("fs");
 
@@ -11,6 +11,8 @@ geoData = {};
 countryCodes = [];
 
 subcountryCodes = [];
+
+COOR_STEP = 5;
 
 createPolygon = function(type, coordinates) {
   var i, j, l, m, ref, ref1, res;
@@ -83,7 +85,7 @@ countryByCca3 = function(cca3) {
 };
 
 pointToCountry = function(longitude, latitude, findNearest, subcountryIn) {
-  var cca3, cca3Codes, dist, l, len, len1, len2, m, minCca3, minDist, n, ref, vertex;
+  var cca3, cca3Codes, coord, coords, dist, l, len, len1, len2, m, minCca3, minDist, n, nearRound, point, points, ref, ref1;
   if (findNearest == null) {
     findNearest = false;
   }
@@ -105,20 +107,30 @@ pointToCountry = function(longitude, latitude, findNearest, subcountryIn) {
   if (!findNearest) {
     return null;
   }
+  points = [[Math.floor(longitude / COOR_STEP) * COOR_STEP, Math.floor(latitude / COOR_STEP) * COOR_STEP], [Math.floor(longitude / COOR_STEP) * COOR_STEP, Math.ceil(latitude / COOR_STEP) * COOR_STEP], [Math.ceil(longitude / COOR_STEP) * COOR_STEP, Math.floor(latitude / COOR_STEP) * COOR_STEP], [Math.ceil(longitude / COOR_STEP) * COOR_STEP, Math.ceil(latitude / COOR_STEP) * COOR_STEP]];
   minDist = Number.MAX_SAFE_INTEGER;
   minCca3 = null;
-  for (m = 0, len1 = cca3Codes.length; m < len1; m++) {
-    cca3 = cca3Codes[m];
-    ref = geoData[cca3].vertices;
-    for (n = 0, len2 = ref.length; n < len2; n++) {
-      vertex = ref[n];
-      if (vertex[0] === 0 && vertex[1] === 0) {
-        continue;
+  for (m = 0, len1 = points.length; m < len1; m++) {
+    point = points[m];
+    nearRound = (ref = (ref1 = verticesNet[point[0]]) != null ? ref1[point[1]] : void 0) != null ? ref : {};
+    for (cca3 in nearRound) {
+      coords = nearRound[cca3];
+      if (subcountryIn) {
+        if (cca3.indexOf(subcountryIn + "-") !== 0) {
+          continue;
+        }
+      } else {
+        if (cca3.indexOf("-") !== -1) {
+          continue;
+        }
       }
-      dist = calculateDistance(longitude, latitude, vertex[0], vertex[1]);
-      if (dist < minDist) {
-        minDist = dist;
-        minCca3 = cca3;
+      for (n = 0, len2 = coords.length; n < len2; n++) {
+        coord = coords[n];
+        dist = calculateDistance(longitude, latitude, coord[0], coord[1]);
+        if (dist < minDist && dist < 500) {
+          minDist = dist;
+          minCca3 = cca3;
+        }
       }
     }
   }
@@ -147,7 +159,7 @@ loadData = function(dataPath, isoFn, featureFn) {
     if ((data != null ? (ref1 = data.features) != null ? ref1.length : void 0 : void 0) !== 1) {
       throw new Error("Unexpected number of features: " + data.features.length);
     }
-    feature = data.features.shift();
+    feature = data.features[0];
     if (!((ref2 = feature.geometry) != null ? ref2.type : void 0)) {
       continue;
     }
@@ -190,13 +202,45 @@ loadData(__dirname + "/lib/world.geo.json/countries/USA", function(iso) {
   });
 });
 
+verticesNet = {};
+
+for (cca3 in geoData) {
+  data = geoData[cca3];
+  ref = data.vertices;
+  for (l = 0, len = ref.length; l < len; l++) {
+    vertex = ref[l];
+    if (vertex[0] === 0 && vertex[1] === 0) {
+      continue;
+    }
+    points = [[Math.floor(vertex[0] / COOR_STEP) * COOR_STEP, Math.floor(vertex[1] / COOR_STEP) * COOR_STEP], [Math.floor(vertex[0] / COOR_STEP) * COOR_STEP, Math.ceil(vertex[1] / COOR_STEP) * COOR_STEP], [Math.ceil(vertex[0] / COOR_STEP) * COOR_STEP, Math.floor(vertex[1] / COOR_STEP) * COOR_STEP], [Math.ceil(vertex[0] / COOR_STEP) * COOR_STEP, Math.ceil(vertex[1] / COOR_STEP) * COOR_STEP]];
+    for (i = m = 0; m <= 3; i = ++m) {
+      if (Math.abs(points[i][0]) === 180) {
+        points.push([-points[i][0], points[i][1]]);
+      }
+    }
+    for (n = 0, len1 = points.length; n < len1; n++) {
+      point = points[n];
+      if (verticesNet[name = point[0]] == null) {
+        verticesNet[name] = {};
+      }
+      if ((base = verticesNet[point[0]])[name1 = point[1]] == null) {
+        base[name1] = {};
+      }
+      if ((base1 = verticesNet[point[0]][point[1]])[cca3] == null) {
+        base1[cca3] = [];
+      }
+      verticesNet[point[0]][point[1]][cca3].push(vertex);
+    }
+  }
+}
+
 module.exports = function(longitude, latitude, findNearest) {
-  var country, k, newCountry, ref, v;
+  var country, k, newCountry, ref1, v;
   if (findNearest == null) {
     findNearest = false;
   }
   country = pointToCountry(longitude, latitude, findNearest);
-  if ((ref = country != null ? country.cca3 : void 0) !== "USA") {
+  if ((ref1 = country != null ? country.cca3 : void 0) !== "USA") {
     return country;
   }
   newCountry = {};
